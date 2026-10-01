@@ -16,6 +16,10 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#1f7a4d">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icona-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <style>
   :root {
     --blu: #1f7a4d;          /* verde principale (pulsanti, titoli) */
@@ -62,6 +66,9 @@
   .tricolore { height: 5px; background: linear-gradient(90deg, #34b758 0 33.3%%, #fff 33.3%% 66.6%%, #ed1c24 66.6%%); }
   header .utente { font-size: 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   main { max-width: 900px; margin: 30px auto; padding: 0 16px; }
+  body.largo main { max-width: 1500px; }
+  body.largo table { font-size: 14px; }
+  body.largo th, body.largo td { padding: 6px 8px; white-space: nowrap; }
   .card {
     background: #fff;
     border: 1px solid var(--bordo);
@@ -312,6 +319,7 @@ sb.auth.onAuthStateChange((evento, sessione) => {
   }
   if (evento === "SIGNED_OUT") {
     profilo = null;
+    document.body.classList.remove("largo");
     $("barra-utente").classList.add("nascosto");
     mostra("sez-login");
   }
@@ -378,6 +386,7 @@ async function dopoLogin(nuovoLogin) {
     return;
   }
   profilo = data;
+  document.body.classList.toggle("largo", !!profilo.is_admin);
 
   if (!profilo.attivo) {
     msg("msg-login", "Account non attivo. Contatta l'ufficio.", "errore");
