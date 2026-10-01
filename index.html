@@ -489,9 +489,13 @@ $("form-login").addEventListener("submit", async (ev) => {
     });
     if (errU || !emailTrovata) {
       $("btn-login").disabled = false;
-      msg("msg-login", "Nome utente o password non corretti.", "errore");
+      const bloccato = errU && /BLOCCATO/.test(errU.message || "");
+      msg("msg-login", bloccato
+        ? "Troppi tentativi sbagliati: questo nome utente e' bloccato per 15 minuti. Se non ricordi la password usa \"Hai dimenticato la password?\"."
+        : "Nome utente o password non corretti.", "errore");
       return;
     }
+    sb.rpc("pulisci_tentativi").then(() => {}, () => {});
     identificativo = emailTrovata;
   }
 
