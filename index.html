@@ -101,6 +101,13 @@
   .lista-buste .titolo { font-weight: 600; font-size: 20px; }
   .lista-buste .sotto { color: var(--grigio); font-size: 15px; }
   .azioni { display: flex; gap: 8px; }
+  .schede { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 18px; }
+  .scheda {
+    padding: 10px 20px; border-radius: 999px; border: 2px solid var(--blu);
+    background: #fff; color: var(--blu); font-weight: 600; font-size: 17px; margin: 0;
+  }
+  .scheda.attiva { background: var(--blu); color: #fff; }
+  .credit { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bordo); font-size: 13px; }
   .vuoto { color: var(--grigio); text-align: center; padding: 30px; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   th, td { padding: 8px 10px; border-bottom: 1px solid var(--bordo); text-align: left; }
@@ -178,16 +185,12 @@
 
   <!-- ============ LE MIE BUSTE ============ -->
   <section class="card nascosto" id="sez-buste">
-    <h2>Le tue buste paga</h2>
-    <p>Clicca su <strong>Apri</strong> per visualizzare la busta, oppure su <strong>Scarica</strong> per salvarla sul tuo dispositivo.</p>
+    <h2>I tuoi documenti</h2>
+    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta o su <strong>Scarica</strong> per salvarla sul tuo dispositivo.</p>
     <div class="messaggio" id="msg-buste"></div>
+    <div class="schede" id="schede"></div>
     <ul class="lista-buste" id="lista-buste"></ul>
-    <div class="vuoto nascosto" id="buste-vuoto">Non ci sono ancora buste paga disponibili.</div>
-    <div id="blocco-altri" class="nascosto">
-      <h2 style="margin-top:28px">Altri documenti</h2>
-      <p>Certificazione Unica (CUD) e altri documenti annuali.</p>
-      <ul class="lista-buste" id="lista-altri"></ul>
-    </div>
+    <div class="vuoto nascosto" id="buste-vuoto">Non ci sono ancora documenti disponibili.</div>
   </section>
 
   <!-- ============ PANNELLO ADMIN ============ -->
@@ -227,6 +230,8 @@
   P.IVA e C.F. 00257660670 - REA TE-70091 - Albo Artigiani TE-22737<br>
   Tel. 085 8941066 - info@magrinigelati.it - PEC magrinigelati@pec.it - www.magrinigelati.it<br>
   <span style="display:inline-block;margin-top:8px">Portale riservato ai dipendenti</span>
+  <div class="credit">Portale realizzato e curato internamente da <strong>Alfonso Prosperi</strong> (sistemi informativi).<br>
+  Per problemi di accesso o documenti mancanti rivolgersi in ufficio.</div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -415,11 +420,13 @@ $("form-cambio").addEventListener("submit", async (ev) => {
 // =====================================================================
 // LE MIE BUSTE
 // =====================================================================
+let documenti = [];
+let schedaAttiva = null;
+
 async function mostraBuste() {
   mostra("sez-buste");
   msg("msg-buste", "");
-  const lista = $("lista-buste"), listaAltri = $("lista-altri");
-  lista.innerHTML = ""; listaAltri.innerHTML = "";
+  $("schede").innerHTML = ""; $("lista-buste").innerHTML = "";
 
   const { data, error } = await sb
     .from("buste_paga")
@@ -430,13 +437,35 @@ async function mostraBuste() {
     .order("pagina", { ascending: true });
 
   if (error) { msg("msg-buste", traduciErrore(error), "errore"); return; }
+  documenti = data;
+  $("buste-vuoto").classList.toggle("nascosto", documenti.length > 0);
 
-  const buste = data.filter(b => (b.tipo || "busta_paga") === "busta_paga");
-  const altri = data.filter(b => (b.tipo || "busta_paga") !== "busta_paga");
-  $("buste-vuoto").classList.toggle("nascosto", buste.length > 0);
-  $("blocco-altri").classList.toggle("nascosto", altri.length === 0);
+  // Una scheda per ogni anno con buste paga, piu' una per i documenti annuali (CUD)
+  const anni = [...new Set(documenti.filter(b => (b.tipo || "busta_paga") === "busta_paga").map(b => b.anno))];
+  const schede = anni.map(a => ({ chiave: String(a), etichetta: String(a) }));
+  if (documenti.some(b => (b.tipo || "busta_paga") !== "busta_paga")) {
+    schede.push({ chiave: "annuali", etichetta: "CUD e altri documenti" });
+  }
+  schede.forEach(sc => {
+    const btn = document.createElement("button");
+    btn.className = "scheda"; btn.textContent = sc.etichetta; btn.dataset.chiave = sc.chiave;
+    btn.addEventListener("click", () => mostraScheda(sc.chiave));
+    $("schede").appendChild(btn);
+  });
+  if (schede.length) mostraScheda(schede.some(s => s.chiave === schedaAttiva) ? schedaAttiva : schede[0].chiave);
 
-  data.forEach(b => {
+  if (profilo.is_admin) await mostraAdmin();
+}
+
+function mostraScheda(chiave) {
+  schedaAttiva = chiave;
+  document.querySelectorAll("#schede .scheda").forEach(b => b.classList.toggle("attiva", b.dataset.chiave === chiave));
+  const lista = $("lista-buste"); lista.innerHTML = "";
+  const selezionati = documenti.filter(b => {
+    const eBusta = (b.tipo || "busta_paga") === "busta_paga";
+    return chiave === "annuali" ? !eBusta : (eBusta && String(b.anno) === chiave);
+  });
+  selezionati.forEach(b => {
     const li = document.createElement("li");
     const eBusta = (b.tipo || "busta_paga") === "busta_paga";
     const titolo = eBusta
@@ -455,10 +484,8 @@ async function mostraBuste() {
     li.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => apriBusta(b, btn.dataset.azione, btn));
     });
-    (eBusta ? lista : listaAltri).appendChild(li);
+    lista.appendChild(li);
   });
-
-  if (profilo.is_admin) await mostraAdmin();
 }
 
 async function apriBusta(busta, azione, btn) {
