@@ -126,6 +126,14 @@
     background: #fff; color: var(--blu); font-weight: 600; font-size: 17px; margin: 0;
   }
   .scheda.attiva { background: var(--blu); color: #fff; }
+  .velo { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .velo.aperto { display: flex; }
+  .finestra { background: #fff; border-radius: 12px; max-width: 760px; width: 100%; max-height: 90vh; overflow: auto; padding: 24px 28px; font-size: 15px; line-height: 1.55; }
+  .finestra h2 { font-size: 22px; }
+  .finestra h3 { color: var(--blu); font-size: 17px; margin: 20px 0 6px; }
+  .finestra p, .finestra li { margin: 6px 0; }
+  .finestra .chiudi { float: right; }
+  footer button.link { font-size: 13px; margin: 0; }
   .credit { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bordo); font-size: 13px; }
   .vuoto { color: var(--grigio); text-align: center; padding: 30px; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
@@ -248,10 +256,56 @@
   Sede legale: Via Norvegia, 5 - 64026 Roseto degli Abruzzi (TE)<br>
   P.IVA e C.F. 00257660670<br>
   Tel. 085 8941066 - info@magrinigelati.it - PEC magrinigelati@pec.it - www.magrinigelati.it<br>
-  <span style="display:inline-block;margin-top:8px">Portale riservato ai dipendenti</span>
+  <span style="display:inline-block;margin-top:8px">Portale riservato ai dipendenti - <button class="link" id="btn-privacy">Informativa privacy</button></span>
   <div class="credit">Portale realizzato internamente dalla Magrini R. &amp; Ceci G. snc, curato e gestito da Alfonso Prosperi (sistemi informativi).<br>
   Per problemi di accesso o documentazione mancante rivolgersi in ufficio.</div>
 </footer>
+
+
+<div class="velo" id="velo-privacy">
+  <div class="finestra">
+    <button class="secondario piccolo chiudi" id="btn-chiudi-privacy">Chiudi</button>
+    <h2>Informativa sul trattamento dei dati personali</h2>
+    <p>Ai sensi degli artt. 13 e 14 del Regolamento (UE) 2016/679 (GDPR), per l'utilizzo del Portale Buste Paga.</p>
+
+    <h3>1. Titolare del trattamento</h3>
+    <p>Magrini R. &amp; Ceci G. snc, Via Norvegia 5, 64026 Roseto degli Abruzzi (TE), P.IVA 00257660670, tel. 085 8941066, e-mail info@magrinigelati.it, PEC magrinigelati@pec.it.</p>
+
+    <h3>2. Finalità e base giuridica</h3>
+    <p>Il portale serve a mettere a disposizione di ciascun dipendente i propri prospetti paga (cedolini), la Certificazione Unica e gli altri documenti connessi al rapporto di lavoro. Il trattamento è necessario per l'esecuzione del contratto di lavoro e per l'adempimento degli obblighi di legge in materia di consegna del prospetto paga (art. 6, par. 1, lett. b e c GDPR). La registrazione degli accessi ha la finalità di documentare l'avvenuta messa a disposizione e consultazione dei documenti e di garantire la sicurezza del sistema (legittimo interesse del Titolare, art. 6, par. 1, lett. f GDPR).</p>
+
+    <h3>3. Dati trattati</h3>
+    <ul>
+      <li>dati identificativi e di contatto: nome, cognome, indirizzo e-mail, nome utente;</li>
+      <li>dati contenuti nei documenti resi disponibili: dati retributivi, contributivi e fiscali;</li>
+      <li>dati di utilizzo del portale: data e ora di accesso, documenti aperti o scaricati, indirizzo IP e tipo di dispositivo o browser usato.</li>
+    </ul>
+    <p>I documenti sono visibili esclusivamente al dipendente interessato, dopo l'accesso con le proprie credenziali, e al personale amministrativo autorizzato.</p>
+
+    <h3>4. Modalità del trattamento e sicurezza</h3>
+    <p>I dati sono trattati con strumenti informatici, con misure di sicurezza adeguate: accesso tramite credenziali personali con obbligo di cambio password al primo utilizzo, collegamento cifrato (HTTPS), documenti conservati in area riservata non accessibile pubblicamente, link di apertura temporanei. Il dipendente è tenuto a custodire le proprie credenziali e a non cederle a terzi.</p>
+
+    <h3>5. Destinatari e responsabili del trattamento</h3>
+    <p>I dati possono essere trattati, in qualità di responsabili del trattamento nominati ai sensi dell'art. 28 GDPR, da: il consulente del lavoro che elabora i prospetti paga; Supabase Inc., fornitore del servizio di archiviazione e autenticazione, con dati conservati su server situati nell'Unione Europea (Francoforte, Germania); Brevo (Sendinblue SAS, Francia), fornitore del servizio di invio delle e-mail di servizio (es. recupero password). I dati non sono diffusi né comunicati ad altri soggetti, salvo obblighi di legge.</p>
+
+    <h3>6. Trasferimento extra UE</h3>
+    <p>I dati sono conservati nell'Unione Europea. Eventuali trasferimenti verso Paesi terzi da parte dei fornitori avvengono nel rispetto del Capo V del GDPR (clausole contrattuali standard o decisioni di adeguatezza).</p>
+
+    <h3>7. Conservazione</h3>
+    <p>I documenti restano disponibili nel portale per tutta la durata del rapporto di lavoro e, successivamente, per il tempo previsto dagli obblighi di legge in materia di conservazione della documentazione del lavoro. I dati di accesso (log) sono conservati per il tempo necessario a documentare la consegna dei prospetti paga e comunque non oltre i termini di prescrizione applicabili.</p>
+
+    <h3>8. Natura del conferimento</h3>
+    <p>L'uso del portale è lo strumento con cui il Titolare adempie all'obbligo di consegna del prospetto paga. Resta ferma la possibilità di richiedere in ufficio una copia del documento in altra forma.</p>
+
+    <h3>9. Diritti dell'interessato</h3>
+    <p>Il dipendente può esercitare in qualsiasi momento i diritti di cui agli artt. 15-22 GDPR: accesso, rettifica, cancellazione (nei limiti degli obblighi di conservazione), limitazione, opposizione e portabilità, scrivendo a info@magrinigelati.it o rivolgendosi all'ufficio amministrativo. Ha inoltre il diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).</p>
+
+    <h3>10. Cookie</h3>
+    <p>Il portale utilizza esclusivamente dati tecnici di sessione, necessari a mantenere l'accesso dopo il login. Non sono usati cookie di profilazione né strumenti di tracciamento.</p>
+
+    <p style="margin-top:18px;color:var(--grigio)">Ultimo aggiornamento: ottobre 2026</p>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -304,6 +358,11 @@ async function registraAccesso(azione, bustaId) {
     console.warn("Log non registrato:", e);
   }
 }
+
+// Informativa privacy
+$("btn-privacy").addEventListener("click", () => $("velo-privacy").classList.add("aperto"));
+$("btn-chiudi-privacy").addEventListener("click", () => $("velo-privacy").classList.remove("aperto"));
+$("velo-privacy").addEventListener("click", (e) => { if (e.target === $("velo-privacy")) $("velo-privacy").classList.remove("aperto"); });
 
 // =====================================================================
 // AVVIO E GESTIONE SESSIONE
