@@ -317,16 +317,57 @@ sb.auth.onAuthStateChange((evento, sessione) => {
   }
 });
 
+// Legge i parametri che Supabase mette nell'indirizzo dopo il click sul link
+// della e-mail (es. #type=recovery oppure #error=...), PRIMA di tutto il resto.
+function leggiHash() {
+  const h = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const q = new URLSearchParams(window.location.search);
+  return {
+    recovery: h.get("type") === "recovery" || q.get("type") === "recovery",
+    errore: h.get("error_description") || h.get("error_code") || h.get("error") || q.get("error_description") || "",
+  };
+}
+
 async function avvio() {
+  const info = leggiHash();
+  if (info.recovery) recuperoInCorso = true;
+
   const { data: { session } } = await sb.auth.getSession();
-  if (session && !recuperoInCorso) {
+
+  if (recuperoInCorso) {
+    if (session) {
+      // Link di recupero valido: chiedi la nuova password, mai mostrare le buste
+      $("testo-cambio").textContent = "Scegli la tua nuova password. Deve avere almeno 8 caratteri.";
+      $("barra-utente").classList.remove("nascosto");
+      $("nome-utente").textContent = session.user ? session.user.email : "";
+      mostra("sez-cambio");
+    } else {
+      mostra("sez-login");
+      msg("msg-login", "Il link di recupero non e' valido o e' scaduto. Richiedi un nuovo link con \"Hai dimenticato la password?\".", "errore");
+    }
+    history.replaceState(null, "", window.location.pathname);
+    return;
+  }
+
+  if (info.errore) {
+    mostra("sez-login");
+    const scaduto = /expired|invalid|otp/i.test(info.errore);
+    msg("msg-login", scaduto
+      ? "Il link non e' piu' valido: e' scaduto o e' gia' stato usato. Richiedi un nuovo link con \"Hai dimenticato la password?\"."
+      : "Si e' verificato un errore: " + decodeURIComponent(info.errore.replace(/\+/g, " ")), "errore");
+    history.replaceState(null, "", window.location.pathname);
+    return;
+  }
+
+  if (session) {
     await dopoLogin(false);
-  } else if (!recuperoInCorso) {
+  } else {
     mostra("sez-login");
   }
 }
 
 async function dopoLogin(nuovoLogin) {
+  if (recuperoInCorso) return;   // durante il recupero password non si entra nelle buste
   const { data: { user } } = await sb.auth.getUser();
   if (!user) { mostra("sez-login"); return; }
 
