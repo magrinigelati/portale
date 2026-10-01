@@ -207,10 +207,12 @@
       </div>
     </div>
     <div class="riepilogo" id="adm-riepilogo"></div>
+    <div class="messaggio" id="msg-admin"></div>
+    <input type="file" id="adm-file" accept="application/pdf" class="nascosto">
     <div style="overflow-x:auto">
       <table id="adm-tabella">
         <thead>
-          <tr><th>Dipendente</th><th>Nome utente</th><th>File</th><th>Visto</th><th>Prima apertura</th><th>N. aperture</th><th>Password</th></tr>
+          <tr><th>Dipendente</th><th>Nome utente</th><th>File</th><th>Visto</th><th>Prima apertura</th><th>N. aperture</th><th>Password</th><th>Azioni</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -504,7 +506,7 @@ $("btn-adm-aggiorna").addEventListener("click", caricaRiepilogo);
 async function caricaRiepilogo() {
   const anno = parseInt($("adm-anno").value), mese = parseInt($("adm-mese").value);
   const tbody = $("adm-tabella").querySelector("tbody");
-  tbody.innerHTML = "<tr><td colspan='7'>Caricamento...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='8'>Caricamento...</td></tr>";
 
   const { data, error } = await sb
     .from("v_riepilogo_accessi")
@@ -512,7 +514,7 @@ async function caricaRiepilogo() {
     .eq("anno", anno)
     .eq("mese", mese);
 
-  if (error) { tbody.innerHTML = `<tr><td colspan='7' class='no'>${traduciErrore(error)}</td></tr>`; return; }
+  if (error) { tbody.innerHTML = `<tr><td colspan='8' class='no'>${traduciErrore(error)}</td></tr>`; return; }
 
   tbody.innerHTML = "";
   let visti = 0;
@@ -529,16 +531,64 @@ async function caricaRiepilogo() {
       <td class="${r.numero_aperture > 0 ? 'si' : 'no'}">${r.numero_aperture > 0 ? '✅' : '❌'}</td>
       <td>${r.prima_apertura ? new Date(r.prima_apertura).toLocaleString("it-IT") : "-"}</td>
       <td>${r.numero_aperture}</td>
-      <td class="${r.deve_cambiare_password ? 'no' : 'si'}">${r.deve_cambiare_password ? 'iniziale' : 'cambiata'}</td>`;
+      <td class="${r.deve_cambiare_password ? 'no' : 'si'}">${r.deve_cambiare_password ? 'iniziale' : 'cambiata'}</td>
+      <td style="white-space:nowrap">
+        <button class="secondario piccolo" data-az="vedi" style="padding:6px 10px;font-size:14px">Vedi</button>
+        <button class="secondario piccolo" data-az="sost" style="padding:6px 10px;font-size:14px">Sostituisci PDF</button>
+      </td>`;
+    tr.querySelector('[data-az="vedi"]').addEventListener("click", () => vediComeAdmin(r));
+    tr.querySelector('[data-az="sost"]').addEventListener("click", () => chiediSostituzione(r));
     tbody.appendChild(tr);
   });
-  if (!data.length) tbody.innerHTML = "<tr><td colspan='7'>Nessuna busta caricata per questo mese.</td></tr>";
+  if (!data.length) tbody.innerHTML = "<tr><td colspan='8'>Nessuna busta caricata per questo mese.</td></tr>";
 
   $("adm-riepilogo").innerHTML = `
     <div>Dipendenti con busta: ${dipendentiTot.size}</div>
     <div class="si">Hanno aperto: ${dipendentiVisti.size}</div>
     <div class="no">Non hanno aperto: ${dipendentiTot.size - dipendentiVisti.size}</div>`;
 }
+
+// =====================================================================
+// SOSTITUZIONE PDF (solo admin)
+// =====================================================================
+let rigaDaSostituire = null;
+
+async function vediComeAdmin(r) {
+  const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(r.percorso, 120);
+  if (error) { msg("msg-admin", traduciErrore(error), "errore"); return; }
+  window.open(data.signedUrl, "_blank");
+}
+
+function chiediSostituzione(r) {
+  rigaDaSostituire = r;
+  msg("msg-admin", "");
+  $("adm-file").value = "";
+  $("adm-file").click();
+}
+
+$("adm-file").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  const r = rigaDaSostituire;
+  if (!file || !r) return;
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    msg("msg-admin", "Il file scelto non e' un PDF.", "errore"); return;
+  }
+  const chi = (r.nome + " " + r.cognome).trim();
+  if (!confirm("Sostituire il documento " + r.nome_file + " di " + chi + " con il file \"" + file.name + "\"?\n\nIl dipendente vedra' il nuovo file al prossimo accesso.")) return;
+
+  msg("msg-admin", "Caricamento in corso...", "info");
+  const { error } = await sb.storage.from("buste-paga").upload(r.percorso, file, {
+    upsert: true, contentType: "application/pdf", cacheControl: "0"
+  });
+  if (error) { msg("msg-admin", traduciErrore(error), "errore"); return; }
+
+  await sb.from("buste_paga").update({ caricato_il: new Date().toISOString() }).eq("id", r.busta_id);
+  await sb.from("log_sostituzioni").insert({ busta_id: r.busta_id, nome_file: r.nome_file, sostituito_da: profilo.id });
+
+  msg("msg-admin", "Documento di " + chi + " sostituito correttamente.", "ok");
+  rigaDaSostituire = null;
+  caricaRiepilogo();
+});
 
 // =====================================================================
 avvio();
