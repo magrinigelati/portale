@@ -602,7 +602,7 @@ function mostraScheda(chiave) {
     const eBusta = (b.tipo || "busta_paga") === "busta_paga";
     const titolo = eBusta
       ? NOMI_MESI[b.mese] + " " + b.anno + (b.pagina > 1 ? " (pagina " + b.pagina + ")" : "")
-      : (b.descrizione || "Documento") + " " + b.anno;
+      : ((b.descrizione || "Documento").includes(String(b.anno)) ? (b.descrizione || "Documento") : (b.descrizione || "Documento") + " " + b.anno);
     const dataCaricamento = new Date(b.caricato_il).toLocaleDateString("it-IT");
     li.innerHTML = `
       <div>
