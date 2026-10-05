@@ -354,6 +354,10 @@ function traduciErrore(e) {
   if (/password should be at least/i.test(t)) return "La password deve avere almeno 8 caratteri.";
   if (/same password/i.test(t)) return "La nuova password deve essere diversa da quella attuale.";
   if (/network|fetch/i.test(t)) return "Problema di connessione. Controlla la rete e riprova.";
+  if (/EMAIL_NON_VALIDA/.test(t)) return "L'indirizzo e-mail inserito non e' valido.";
+  if (/EMAIL_GIA_USATA/.test(t)) return "Questo indirizzo e-mail e' gia' usato da un altro account.";
+  if (/DIPENDENTE_NON_TROVATO/.test(t)) return "Dipendente non trovato.";
+  if (/NON_AUTORIZZATO/.test(t)) return "Operazione riservata all'amministratore.";
   return "Si e' verificato un errore: " + t;
 }
 
@@ -693,9 +697,11 @@ async function caricaRiepilogo() {
       <td style="white-space:nowrap">
         <button class="secondario piccolo" data-az="vedi" style="padding:6px 10px;font-size:14px">Vedi</button>
         <button class="secondario piccolo" data-az="sost" style="padding:6px 10px;font-size:14px">Sostituisci PDF</button>
+        <button class="secondario piccolo" data-az="mail" style="padding:6px 10px;font-size:14px" title="${r.email}">E-mail</button>
       </td>`;
     tr.querySelector('[data-az="vedi"]').addEventListener("click", () => vediComeAdmin(r));
     tr.querySelector('[data-az="sost"]').addEventListener("click", () => chiediSostituzione(r));
+    tr.querySelector('[data-az="mail"]').addEventListener("click", () => cambiaEmail(r));
     tbody.appendChild(tr);
   });
   if (!data.length) tbody.innerHTML = mese === 0
@@ -706,6 +712,26 @@ async function caricaRiepilogo() {
     <div>${mese === 0 ? "CU " + (anno + 1) + " (redditi " + anno + ")" : "Dipendenti con busta"}: ${dipendentiTot.size}</div>
     <div class="si">Hanno aperto: ${dipendentiVisti.size}</div>
     <div class="no">Non hanno aperto: ${dipendentiTot.size - dipendentiVisti.size}</div>`;
+}
+
+// =====================================================================
+// CAMBIO E-MAIL DI UN DIPENDENTE (solo admin)
+// =====================================================================
+async function cambiaEmail(r) {
+  const nome = (r.nome + " " + r.cognome).trim();
+  const nuova = prompt(
+    "Cambia l'e-mail di " + nome + "\n\nE-mail attuale: " + r.email +
+    "\n\nNuova e-mail (il nome utente " + (r.username || "") + " resta uguale):", "");
+  if (nuova === null) return;
+  const pulita = nuova.trim().toLowerCase();
+  if (!pulita) return;
+  if (pulita === (r.email || "").toLowerCase()) { msg("msg-admin", "La nuova e-mail e' uguale a quella attuale.", "info"); return; }
+  if (!confirm("Confermi il cambio?\n\n" + nome + "\nda: " + r.email + "\na:  " + pulita)) return;
+
+  const { error } = await sb.rpc("admin_cambia_email", { p_email_vecchia: r.email, p_email_nuova: pulita });
+  if (error) { msg("msg-admin", traduciErrore(error), "errore"); return; }
+  msg("msg-admin", "E-mail di " + nome + " aggiornata in " + pulita + ". Ricordati di aggiornarla anche in Anagrafica_Dipendenti.xlsx.", "ok");
+  await caricaRiepilogo();
 }
 
 // =====================================================================
