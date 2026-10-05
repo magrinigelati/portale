@@ -645,7 +645,7 @@ async function mostraAdmin() {
     const oggi = new Date();
     for (let a = oggi.getFullYear(); a >= oggi.getFullYear() - 5; a--) selAnno.add(new Option(a, a));
     for (let m = 1; m <= 12; m++) selMese.add(new Option(NOMI_MESI[m], m));
-    selMese.add(new Option("Documenti annuali (CUD)", 0));
+    selMese.add(new Option("Certificazione Unica (CU)", 0));
     // default: ultimo mese che ha buste caricate, altrimenti il mese precedente
     let m = oggi.getMonth(); let a = oggi.getFullYear();
     if (m === 0) { m = 12; a -= 1; }
@@ -698,10 +698,12 @@ async function caricaRiepilogo() {
     tr.querySelector('[data-az="sost"]').addEventListener("click", () => chiediSostituzione(r));
     tbody.appendChild(tr);
   });
-  if (!data.length) tbody.innerHTML = "<tr><td colspan='8'>Nessuna busta caricata per questo mese.</td></tr>";
+  if (!data.length) tbody.innerHTML = mese === 0
+    ? `<tr><td colspan='8'>Nessuna Certificazione Unica con redditi ${anno}. Ricorda: l'anno da scegliere e' quello dei redditi (la CU ${anno + 1} riguarda i redditi ${anno}; per la CU ${anno} scegli l'anno ${anno - 1}).</td></tr>`
+    : "<tr><td colspan='8'>Nessuna busta caricata per questo mese.</td></tr>";
 
   $("adm-riepilogo").innerHTML = `
-    <div>Dipendenti con busta: ${dipendentiTot.size}</div>
+    <div>${mese === 0 ? "CU " + (anno + 1) + " (redditi " + anno + ")" : "Dipendenti con busta"}: ${dipendentiTot.size}</div>
     <div class="si">Hanno aperto: ${dipendentiVisti.size}</div>
     <div class="no">Non hanno aperto: ${dipendentiTot.size - dipendentiVisti.size}</div>`;
 }
