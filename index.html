@@ -150,6 +150,13 @@
   .nascosto { display: none !important; }
   footer { text-align: center; color: var(--grigio); font-size: 13px; line-height: 1.6; padding: 24px 16px; border-top: 1px solid var(--bordo); margin-top: 20px; }
   footer .logo { width: 90px; height: 62px; display: block; margin: 0 auto 8px; }
+  .pw-box { position: relative; }
+  .pw-box input { padding-right: 52px; }
+  .pw-box button.occhio { position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    margin: 0; padding: 8px; width: 44px; height: 44px; background: none; color: #667;
+    display: flex; align-items: center; justify-content: center; }
+  .pw-box button.occhio:hover { color: var(--blu); }
+  .pw-box button.occhio svg { width: 24px; height: 24px; }
 </style>
 </head>
 <body>
@@ -177,7 +184,7 @@
       <label for="login-email">E-mail o nome utente</label>
       <input type="text" id="login-email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <label for="login-password">Password</label>
-      <input type="password" id="login-password" autocomplete="current-password" required>
+      <div class="pw-box"><input type="password" id="login-password" autocomplete="current-password" required><button type="button" class="occhio" aria-label="Mostra password" title="Mostra password"></button></div>
       <div class="messaggio" id="msg-login"></div>
       <button type="submit" class="primario" id="btn-login">Entra</button>
     </form>
@@ -204,9 +211,9 @@
     <p id="testo-cambio">Per motivi di sicurezza, al primo accesso devi scegliere una password personale. Deve avere almeno 8 caratteri.</p>
     <form id="form-cambio">
       <label for="nuova-pw">Nuova password</label>
-      <input type="password" id="nuova-pw" autocomplete="new-password" minlength="8" required>
+      <div class="pw-box"><input type="password" id="nuova-pw" autocomplete="new-password" minlength="8" required><button type="button" class="occhio" aria-label="Mostra password" title="Mostra password"></button></div>
       <label for="nuova-pw2">Ripeti la nuova password</label>
-      <input type="password" id="nuova-pw2" autocomplete="new-password" minlength="8" required>
+      <div class="pw-box"><input type="password" id="nuova-pw2" autocomplete="new-password" minlength="8" required><button type="button" class="occhio" aria-label="Mostra password" title="Mostra password"></button></div>
       <div class="messaggio" id="msg-cambio"></div>
       <button type="submit" class="primario">Salva password</button>
     </form>
@@ -507,7 +514,7 @@ $("form-login").addEventListener("submit", async (ev) => {
   const { error } = await sb.auth.signInWithPassword({ email: identificativo.toLowerCase(), password });
   $("btn-login").disabled = false;
   if (error) { msg("msg-login", traduciErrore(error), "errore"); return; }
-  $("login-password").value = "";
+  $("login-password").value = ""; nascondiPassword();
   await dopoLogin(true);
 });
 
@@ -548,7 +555,7 @@ $("form-cambio").addEventListener("submit", async (ev) => {
   await sb.rpc("password_cambiata");
   await registraAccesso("cambio_password");
   recuperoInCorso = false;
-  $("nuova-pw").value = ""; $("nuova-pw2").value = "";
+  $("nuova-pw").value = ""; $("nuova-pw2").value = ""; nascondiPassword();
   msg("msg-cambio", "Password salvata correttamente.", "ok");
   setTimeout(() => dopoLogin(false), 800);
 });
@@ -803,6 +810,30 @@ $("adm-file").addEventListener("change", async (ev) => {
 
 // =====================================================================
 avvio();
+// Occhiolino per mostrare/nascondere la password
+const OCCHIO_APERTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const OCCHIO_CHIUSO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function impostaOcchio(btn, visibile) {
+  btn.innerHTML = visibile ? OCCHIO_CHIUSO : OCCHIO_APERTO;
+  const t = visibile ? "Nascondi password" : "Mostra password";
+  btn.title = t; btn.setAttribute("aria-label", t);
+}
+function nascondiPassword() {
+  document.querySelectorAll(".pw-box").forEach(b => {
+    b.querySelector("input").type = "password";
+    impostaOcchio(b.querySelector(".occhio"), false);
+  });
+}
+document.querySelectorAll(".pw-box").forEach(b => {
+  const inp = b.querySelector("input"), btn = b.querySelector(".occhio");
+  impostaOcchio(btn, false);
+  btn.addEventListener("click", () => {
+    const vis = inp.type === "password";
+    inp.type = vis ? "text" : "password";
+    impostaOcchio(btn, vis);
+    inp.focus();
+  });
+});
 </script>
 </body>
 </html>
