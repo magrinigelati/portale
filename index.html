@@ -120,7 +120,8 @@
   .lista-buste li:last-child { border-bottom: none; }
   .lista-buste .titolo { font-weight: 600; font-size: 20px; }
   .lista-buste .sotto { color: var(--grigio); font-size: 15px; }
-  .azioni { display: flex; gap: 8px; }
+  .azioni { display: flex; gap: 8px; flex-wrap: wrap; }
+  .azioni button { width: auto; padding: 10px 13px; }
   .schede { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 18px; }
   .scheda {
     padding: 10px 20px; border-radius: 999px; border: 2px solid var(--blu);
@@ -214,7 +215,7 @@
   <!-- ============ LE MIE BUSTE ============ -->
   <section class="card nascosto" id="sez-buste">
     <h2>I tuoi documenti</h2>
-    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta o su <strong>Scarica</strong> per salvarla sul tuo dispositivo.</p>
+    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail).</p>
     <div class="messaggio" id="msg-buste"></div>
     <div class="schede" id="schede"></div>
     <ul class="lista-buste" id="lista-buste"></ul>
@@ -615,6 +616,7 @@ function mostraScheda(chiave) {
       <div class="azioni">
         <button class="primario piccolo" data-azione="visualizza">Apri</button>
         <button class="secondario piccolo" data-azione="scarica">Scarica</button>
+        ${puoCondividere ? '<button class="secondario piccolo" data-azione="condividi">Condividi</button>' : ''}
       </div>`;
     li.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => apriBusta(b, btn.dataset.azione, btn));
@@ -623,7 +625,30 @@ function mostraScheda(chiave) {
   });
 }
 
+// Condivisione del PDF (WhatsApp, e-mail, Drive...) dove il dispositivo lo consente
+const puoCondividere = !!(navigator.canShare && navigator.share &&
+  navigator.canShare({ files: [new File([""], "prova.pdf", { type: "application/pdf" })] }));
+
+async function condividiBusta(busta, btn) {
+  const testo = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparo...";
+  try {
+    const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120);
+    if (error) throw error;
+    const risposta = await fetch(data.signedUrl);
+    if (!risposta.ok) throw new Error("download non riuscito");
+    const file = new File([await risposta.blob()], busta.nome_file, { type: "application/pdf" });
+    await registraAccesso("scarica", busta.id);
+    await navigator.share({ files: [file], title: busta.nome_file });
+  } catch (e) {
+    if (!(e && e.name === "AbortError")) msg("msg-buste", traduciErrore(e), "errore");
+  } finally {
+    btn.disabled = false; btn.textContent = testo;
+  }
+}
+
 async function apriBusta(busta, azione, btn) {
+  if (azione === "condividi") return condividiBusta(busta, btn);
   btn.disabled = true;
   try {
     const opzioni = azione === "scarica" ? { download: busta.nome_file } : {};
