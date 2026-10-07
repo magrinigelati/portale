@@ -654,16 +654,38 @@ async function condividiBusta(busta, btn) {
   }
 }
 
+// I telefoni bloccano le finestre aperte dopo un'attesa (popup): la finestra
+// si apre subito al tocco, e il PDF ci viene caricato appena il link e' pronto.
+function apriFinestra() {
+  const w = window.open("", "_blank");
+  if (w) { try { w.document.title = "Apertura..."; w.document.body.innerHTML =
+    '<p style="font:18px sans-serif;padding:24px">Apertura del documento in corso...</p>'; } catch (e) {} }
+  return w;
+}
+function mostraInFinestra(w, url, idMsg) {
+  if (w && !w.closed) { w.location.href = url; return; }
+  // finestra bloccata: link da toccare a mano
+  const el = $(idMsg);
+  el.className = "messaggio ok"; el.style.display = "block"; el.textContent = "";
+  const a = document.createElement("a");
+  a.href = url; a.target = "_blank"; a.rel = "noopener";
+  a.textContent = "Il documento e' pronto: tocca qui per aprirlo";
+  a.style.fontWeight = "700";
+  el.appendChild(a);
+}
+
 async function apriBusta(busta, azione, btn) {
   if (azione === "condividi") return condividiBusta(busta, btn);
   btn.disabled = true;
+  const w = apriFinestra();
   try {
     const opzioni = azione === "scarica" ? { download: busta.nome_file } : {};
     const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120, opzioni);
     if (error) throw error;
     await registraAccesso(azione, busta.id);
-    window.open(data.signedUrl, "_blank");
+    mostraInFinestra(w, data.signedUrl, "msg-buste");
   } catch (e) {
+    if (w && !w.closed) w.close();
     msg("msg-buste", traduciErrore(e), "errore");
   } finally {
     btn.disabled = false;
@@ -772,9 +794,10 @@ async function cambiaEmail(r) {
 let rigaDaSostituire = null;
 
 async function vediComeAdmin(r) {
+  const w = apriFinestra();
   const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(r.percorso, 120);
-  if (error) { msg("msg-admin", traduciErrore(error), "errore"); return; }
-  window.open(data.signedUrl, "_blank");
+  if (error) { if (w) w.close(); msg("msg-admin", traduciErrore(error), "errore"); return; }
+  mostraInFinestra(w, data.signedUrl, "msg-admin");
 }
 
 function chiediSostituzione(r) {
