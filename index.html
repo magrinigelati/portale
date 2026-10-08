@@ -150,6 +150,17 @@
   .nascosto { display: none !important; }
   footer { text-align: center; color: var(--grigio); font-size: 13px; line-height: 1.6; padding: 24px 16px; border-top: 1px solid var(--bordo); margin-top: 20px; }
   footer .logo { width: 90px; height: 62px; display: block; margin: 0 auto 8px; }
+  .stato { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .stato.attesa { background: #fff4d6; color: #8a5a00; border: 1px solid #f0c040; }
+  .stato.ok { background: #e8f5e9; color: var(--verde); border: 1px solid #a5d6a7; }
+  .conferma { background: #fff; border-radius: 14px; max-width: 440px; width: 100%; padding: 24px 22px; font-size: 16px; line-height: 1.5; }
+  .conferma h2 { margin: 0 0 10px; font-size: 22px; }
+  .conferma .doc { background: var(--blu-chiaro); border-radius: 8px; padding: 12px 14px; margin: 14px 0; font-weight: 600; }
+  .conferma .doc .chi { font-weight: 400; font-size: 14px; color: #555; }
+  .conferma .spunta { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; font-size: 15px; cursor: pointer; }
+  .conferma .spunta input { width: 24px; height: 24px; flex: none; margin: 1px 0 0; accent-color: var(--blu); }
+  .conferma .annulla { display: block; margin: 14px auto 0; }
+  .conferma small { color: var(--grigio); display: block; margin-top: 10px; font-size: 13px; }
   .pw-box { position: relative; }
   .pw-box input { padding-right: 52px; }
   .pw-box button.occhio { position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
@@ -222,7 +233,7 @@
   <!-- ============ LE MIE BUSTE ============ -->
   <section class="card nascosto" id="sez-buste">
     <h2>I tuoi documenti</h2>
-    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail).</p>
+    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail). La prima volta che apri un documento nuovo ti viene chiesto di confermarne la ricezione.</p>
     <div class="messaggio" id="msg-buste"></div>
     <div class="schede" id="schede"></div>
     <ul class="lista-buste" id="lista-buste"></ul>
@@ -251,7 +262,7 @@
     <div style="overflow-x:auto">
       <table id="adm-tabella">
         <thead>
-          <tr><th>Dipendente</th><th>Nome utente</th><th>File</th><th>Visto</th><th>Prima apertura</th><th>N. aperture</th><th>Password</th><th>Azioni</th></tr>
+          <tr><th>Dipendente</th><th>Nome utente</th><th>File</th><th>Visto</th><th>Prima apertura</th><th>N. aperture</th><th>Ricezione confermata</th><th>Password</th><th>Azioni</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -269,6 +280,19 @@
   <div style="margin-top:10px"><button class="link" id="btn-privacy" style="font-size:12px">Informativa privacy</button></div>
 </footer>
 
+
+<div class="velo" id="velo-conferma">
+  <div class="conferma">
+    <h2>Conferma di ricezione</h2>
+    <p>Prima di aprire il documento ti chiediamo di confermare di averlo ricevuto.</p>
+    <div class="doc"><span id="conf-titolo"></span><br><span class="chi" id="conf-nome"></span></div>
+    <label class="spunta"><input type="checkbox" id="conf-spunta"><span id="conf-testo"></span></label>
+    <div class="messaggio" id="msg-conferma"></div>
+    <button class="primario" id="conf-ok" disabled>Confermo e apri</button>
+    <button class="link annulla" id="conf-annulla">Annulla</button>
+    <small>La conferma viene registrata con data e ora. Non sostituisce eventuali contestazioni sul contenuto del documento: per dubbi rivolgiti all'ufficio.</small>
+  </div>
+</div>
 
 <div class="velo" id="velo-privacy">
   <div class="finestra">
@@ -573,6 +597,34 @@ $("form-cambio").addEventListener("submit", async (ev) => {
 // =====================================================================
 let documenti = [];
 let schedaAttiva = null;
+let conferme = {};   // id documento -> { quando, hash } (ultima conferma)
+let confermeAttive = true;   // false se il database non ha ancora lo script 07: niente richiesta
+
+function titoloDocumento(b) {
+  const eBusta = (b.tipo || "busta_paga") === "busta_paga";
+  if (eBusta) return "Busta paga di " + NOMI_MESI[b.mese] + " " + b.anno + (b.pagina > 1 ? " (pagina " + b.pagina + ")" : "");
+  const d = b.descrizione || "Documento";
+  return d.includes(String(b.anno)) ? d : d + " " + b.anno;
+}
+
+// Confermato = esiste una conferma e si riferisce alla versione attuale del file
+function eConfermato(b) {
+  if (!confermeAttive) return true;
+  const c = conferme[b.id];
+  if (!c) return false;
+  if (c.hash && b.hash_sha256 && c.hash !== b.hash_sha256) return false;
+  return true;
+}
+
+async function caricaConferme() {
+  conferme = {};
+  const { data, error } = await sb.from("conferme_ricezione")
+    .select("busta_id, confermata_il, hash_sha256")
+    .eq("dipendente_id", profilo.id)
+    .order("confermata_il", { ascending: false });
+  confermeAttive = !error;
+  (data || []).forEach(c => { if (c.busta_id && !conferme[c.busta_id]) conferme[c.busta_id] = { quando: c.confermata_il, hash: c.hash_sha256 }; });
+}
 
 async function mostraBuste() {
   mostra("sez-buste");
@@ -581,7 +633,7 @@ async function mostraBuste() {
 
   const { data, error } = await sb
     .from("buste_paga")
-    .select("id, tipo, descrizione, anno, mese, pagina, nome_file, percorso, caricato_il")
+    .select("id, tipo, descrizione, anno, mese, pagina, nome_file, percorso, caricato_il, hash_sha256")
     .eq("dipendente_id", profilo.id)
     .order("anno", { ascending: false })
     .order("mese", { ascending: false })
@@ -589,6 +641,7 @@ async function mostraBuste() {
 
   if (error) { msg("msg-buste", traduciErrore(error), "errore"); return; }
   documenti = data;
+  await caricaConferme();
   $("buste-vuoto").classList.toggle("nascosto", documenti.length > 0);
 
   // Una scheda per ogni anno con buste paga, piu' una per i documenti annuali (CUD)
@@ -627,6 +680,7 @@ function mostraScheda(chiave) {
       <div>
         <div class="titolo">${titolo}</div>
         <div class="sotto">Disponibile dal ${dataCaricamento}</div>
+        <div class="stato" data-stato="${b.id}"></div>
       </div>
       <div class="azioni">
         <button class="primario piccolo" data-azione="visualizza">Apri</button>
@@ -636,9 +690,76 @@ function mostraScheda(chiave) {
     li.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => apriBusta(b, btn.dataset.azione, btn));
     });
+    aggiornaStato(li.querySelector(".stato"), b);
     lista.appendChild(li);
   });
 }
+
+function aggiornaStato(el, b) {
+  if (!el) return;
+  if (!confermeAttive) { el.style.display = "none"; return; }
+  if (eConfermato(b)) {
+    const q = new Date(conferme[b.id].quando);
+    el.className = "stato ok";
+    el.textContent = "\u2713 Ricezione confermata il " + q.toLocaleDateString("it-IT") + " alle " + q.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  } else {
+    el.className = "stato attesa";
+    el.textContent = "Da confermare";
+  }
+}
+
+// ---------------------------------------------------------------
+// CONFERMA DI RICEZIONE: la prima volta che si tocca Apri, Scarica o
+// Condividi su un documento nuovo, si chiede la conferma. Il pulsante
+// "Confermo e apri" e' un tocco vero dell'utente, quindi Safari lascia
+// aprire la scheda del PDF e partire la condivisione.
+// ---------------------------------------------------------------
+let confermaInCorso = null;   // { busta, azione, btn }
+
+function chiediConferma(busta, azione, btn) {
+  confermaInCorso = { busta, azione, btn };
+  $("conf-titolo").textContent = titoloDocumento(busta);
+  $("conf-nome").textContent = (profilo.nome + " " + profilo.cognome).trim();
+  $("conf-testo").innerHTML = "Dichiaro di aver ricevuto <b>" + titoloDocumento(busta).replace(/^Busta paga di /, "la busta paga di ") + "</b>.";
+  $("conf-ok").textContent = azione === "scarica" ? "Confermo e scarica" : azione === "condividi" ? "Confermo e condividi" : "Confermo e apri";
+  $("conf-spunta").checked = false;
+  $("conf-ok").disabled = true;
+  msg("msg-conferma", "");
+  $("velo-conferma").classList.add("aperto");
+}
+
+function chiudiConferma() {
+  $("velo-conferma").classList.remove("aperto");
+  confermaInCorso = null;
+}
+
+$("conf-spunta").addEventListener("change", () => { $("conf-ok").disabled = !$("conf-spunta").checked; });
+$("conf-annulla").addEventListener("click", chiudiConferma);
+
+$("conf-ok").addEventListener("click", async () => {
+  const c = confermaInCorso;
+  if (!c || !$("conf-spunta").checked) return;
+  const okBtn = $("conf-ok");
+  okBtn.disabled = true; msg("msg-conferma", "");
+  // la scheda del PDF va aperta ADESSO, dentro il tocco (altrimenti Safari la blocca)
+  const w = c.azione === "condividi" ? null : apriFinestra(c.azione === "scarica");
+  try {
+    const { data: quando, error } = await sb.rpc("conferma_ricezione", { p_busta_id: c.busta.id });
+    if (error) throw error;
+    conferme[c.busta.id] = { quando: quando, hash: c.busta.hash_sha256 || null };
+    aggiornaStato(document.querySelector('[data-stato="' + c.busta.id + '"]'), c.busta);
+    chiudiConferma();
+    if (c.azione === "condividi") {
+      await condividiBusta(c.busta, c.btn);
+    } else {
+      await apriDocumento(c.busta, c.azione, c.btn, w);
+    }
+  } catch (e) {
+    if (w && !w.closed) w.close();
+    okBtn.disabled = false;
+    msg("msg-conferma", traduciErrore(e), "errore");
+  }
+});
 
 // Condivisione del PDF (WhatsApp, e-mail, Drive...) dove il dispositivo lo consente
 let puoCondividere = false;
@@ -701,9 +822,14 @@ function mostraInFinestra(w, url, idMsg) {
 }
 
 async function apriBusta(busta, azione, btn) {
+  if (!eConfermato(busta)) return chiediConferma(busta, azione, btn);
   if (azione === "condividi") return condividiBusta(busta, btn);
+  // la scheda si apre subito, dentro il tocco
+  return apriDocumento(busta, azione, btn, apriFinestra(azione === "scarica"));
+}
+
+async function apriDocumento(busta, azione, btn, w) {
   btn.disabled = true;
-  const w = apriFinestra(azione === "scarica");
   try {
     const opzioni = azione === "scarica" ? { download: busta.nome_file } : {};
     const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120, opzioni);
@@ -748,7 +874,7 @@ $("btn-adm-aggiorna").addEventListener("click", caricaRiepilogo);
 async function caricaRiepilogo() {
   const anno = parseInt($("adm-anno").value), mese = parseInt($("adm-mese").value);
   const tbody = $("adm-tabella").querySelector("tbody");
-  tbody.innerHTML = "<tr><td colspan='8'>Caricamento...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='9'>Caricamento...</td></tr>";
 
   const { data, error } = await sb
     .from("v_riepilogo_accessi")
@@ -756,15 +882,16 @@ async function caricaRiepilogo() {
     .eq("anno", anno)
     .eq("mese", mese);
 
-  if (error) { tbody.innerHTML = `<tr><td colspan='8' class='no'>${traduciErrore(error)}</td></tr>`; return; }
+  if (error) { tbody.innerHTML = `<tr><td colspan='9' class='no'>${traduciErrore(error)}</td></tr>`; return; }
 
   tbody.innerHTML = "";
   let visti = 0;
-  const dipendentiVisti = new Set(), dipendentiTot = new Set();
+  const dipendentiVisti = new Set(), dipendentiTot = new Set(), dipendentiConf = new Set();
   data.forEach(r => {
     const chiave = r.email;
     dipendentiTot.add(chiave);
     if (r.numero_aperture > 0) dipendentiVisti.add(chiave);
+    if (r.confermata_il && confermaAttuale(r)) dipendentiConf.add(chiave);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${(r.nome + " " + r.cognome).trim()}</td>
@@ -773,6 +900,7 @@ async function caricaRiepilogo() {
       <td class="${r.numero_aperture > 0 ? 'si' : 'no'}">${r.numero_aperture > 0 ? '✅' : '❌'}</td>
       <td>${r.prima_apertura ? new Date(r.prima_apertura).toLocaleString("it-IT") : "-"}</td>
       <td>${r.numero_aperture}</td>
+      <td class="${r.confermata_il ? 'si' : 'no'}">${testoConferma(r)}</td>
       <td class="${r.deve_cambiare_password ? 'no' : 'si'}">${r.deve_cambiare_password ? 'iniziale' : 'cambiata'}</td>
       <td style="white-space:nowrap">
         <button class="secondario piccolo" data-az="vedi" style="padding:6px 10px;font-size:14px">Vedi</button>
@@ -785,13 +913,31 @@ async function caricaRiepilogo() {
     tbody.appendChild(tr);
   });
   if (!data.length) tbody.innerHTML = mese === 0
-    ? `<tr><td colspan='8'>Nessuna Certificazione Unica con redditi ${anno}. Ricorda: l'anno da scegliere e' quello dei redditi (la CU ${anno + 1} riguarda i redditi ${anno}; per la CU ${anno} scegli l'anno ${anno - 1}).</td></tr>`
-    : "<tr><td colspan='8'>Nessuna busta caricata per questo mese.</td></tr>";
+    ? `<tr><td colspan='9'>Nessuna Certificazione Unica con redditi ${anno}. Ricorda: l'anno da scegliere e' quello dei redditi (la CU ${anno + 1} riguarda i redditi ${anno}; per la CU ${anno} scegli l'anno ${anno - 1}).</td></tr>`
+    : "<tr><td colspan='9'>Nessuna busta caricata per questo mese.</td></tr>";
 
   $("adm-riepilogo").innerHTML = `
     <div>${mese === 0 ? "CU " + (anno + 1) + " (redditi " + anno + ")" : "Dipendenti con busta"}: ${dipendentiTot.size}</div>
     <div class="si">Hanno aperto: ${dipendentiVisti.size}</div>
-    <div class="no">Non hanno aperto: ${dipendentiTot.size - dipendentiVisti.size}</div>`;
+    <div class="si">Hanno confermato: ${dipendentiConf.size}</div>
+    <div class="no">Da confermare: ${dipendentiTot.size - dipendentiConf.size}</div>`;
+}
+
+// La conferma vale per la versione attuale del file? (se il PDF e' stato sostituito dopo, no)
+function confermaAttuale(r) {
+  return !(r.conferma_hash && r.hash_sha256 && r.conferma_hash !== r.hash_sha256);
+}
+function testoConferma(r) {
+  if (!r.confermata_il) return "non confermata";
+  const t = new Date(r.confermata_il).toLocaleString("it-IT", { dateStyle: "short", timeStyle: "short" });
+  return confermaAttuale(r) ? t : t + " <small>(file poi sostituito: da riconfermare)</small>";
+}
+
+async function impronta(file) {
+  try {
+    const h = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) { return null; }
 }
 
 // =====================================================================
@@ -849,7 +995,7 @@ $("adm-file").addEventListener("change", async (ev) => {
   });
   if (error) { msg("msg-admin", traduciErrore(error), "errore"); return; }
 
-  await sb.from("buste_paga").update({ caricato_il: new Date().toISOString() }).eq("id", r.busta_id);
+  await sb.from("buste_paga").update({ caricato_il: new Date().toISOString(), hash_sha256: await impronta(file) }).eq("id", r.busta_id);
   await sb.from("log_sostituzioni").insert({ busta_id: r.busta_id, nome_file: r.nome_file, sostituito_da: profilo.id });
 
   msg("msg-admin", "Documento di " + chi + " sostituito correttamente.", "ok");
