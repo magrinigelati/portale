@@ -148,6 +148,22 @@
   .riepilogo { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0 20px; }
   .riepilogo div { background: var(--blu-chiaro); padding: 12px 18px; border-radius: 8px; font-weight: 600; }
   .nascosto { display: none !important; }
+  /* barra "Installa l'app" in basso (solo se il portale non e' gia' installato) */
+  #installa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: none;
+    background: #fff; border-top: 3px solid var(--giallo, #f2c230); box-shadow: 0 -4px 16px rgba(0,0,0,.15);
+    padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #installa.visibile { display: block; }
+  #installa .riga { display: flex; align-items: center; gap: 12px; max-width: 760px; margin: 0 auto; }
+  #installa img { width: 44px; height: 44px; border-radius: 10px; flex: none; }
+  #installa .testo { flex: 1; font-size: 15px; line-height: 1.35; }
+  #installa .testo b { display: block; font-size: 16px; }
+  #installa .testo small { color: var(--grigio); font-size: 13px; }
+  #installa button.primario { width: auto; margin: 0; padding: 10px 16px; white-space: nowrap; }
+  #installa button.chiudi { background: none; color: var(--grigio); width: auto; margin: 0; padding: 6px 10px; font-size: 22px; line-height: 1; }
+  #installa .istruzioni { display: none; max-width: 760px; margin: 10px auto 0; font-size: 15px; line-height: 1.5; background: var(--blu-chiaro); border-radius: 8px; padding: 10px 12px; }
+  #installa .istruzioni.visibile { display: block; }
+  #installa .istruzioni svg { width: 18px; height: 18px; vertical-align: -3px; }
+  body.con-installa { padding-bottom: 120px; }
   footer { text-align: center; color: var(--grigio); font-size: 13px; line-height: 1.6; padding: 24px 16px; border-top: 1px solid var(--bordo); margin-top: 20px; }
   footer .logo { width: 90px; height: 62px; display: block; margin: 0 auto 8px; }
   .stato { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
@@ -279,6 +295,16 @@
   <span style="display:inline-block;margin-top:8px">Portale riservato ai dipendenti</span>
   <div style="margin-top:10px"><button class="link" id="btn-privacy" style="font-size:12px">Informativa privacy</button></div>
 </footer>
+
+<div id="installa" aria-live="polite">
+  <div class="riga">
+    <img src="icona-192.png" alt="">
+    <div class="testo"><b>Installa il portale come app</b><small>Lo trovi tra le tue app, senza cercare il link.</small></div>
+    <button type="button" class="primario" id="installa-ok">Installa</button>
+    <button type="button" class="chiudi" id="installa-no" aria-label="Chiudi" title="Non ora">&times;</button>
+  </div>
+  <div class="istruzioni" id="installa-come"></div>
+</div>
 
 
 <div class="velo" id="velo-conferma">
@@ -1029,6 +1055,87 @@ document.querySelectorAll(".pw-box").forEach(b => {
     inp.focus();
   });
 });
+// ---------------------------------------------------------------
+// INSTALLA COME APP
+// - Android (Chrome, Edge, Samsung, Brave...) e PC con Chrome/Edge: il browser
+//   manda l'evento beforeinstallprompt e il pulsante apre la finestra di installazione
+// - iPhone/iPad: non esiste il pulsante automatico, si mostrano le istruzioni
+//   (Condividi > Aggiungi alla schermata Home)
+// - Firefox e Safari su Mac: istruzioni dal menu
+// Se il portale e' gia' aperto come app, la barra non compare.
+// ---------------------------------------------------------------
+(function () {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
+  var barra = $("installa");
+  if (!barra) return;
+  var giaApp = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  if (giaApp) return;
+  var CHIAVE = "installa_rimandato";
+  try {
+    var r = localStorage.getItem(CHIAVE);
+    if (r && Date.now() - Number(r) < 30 * 24 * 3600 * 1000) return;   // "non ora" vale 30 giorni
+  } catch (e) {}
+
+  var ua = navigator.userAgent;
+  var eIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var eAndroid = /Android/.test(ua);
+  var eSafariMac = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua);
+  var eFirefox = /Firefox/.test(ua);
+  var promptInstallazione = null;
+  var ICONA_CONDIVIDI = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
+
+  function mostra() { barra.classList.add("visibile"); document.body.classList.add("con-installa"); }
+  function nascondi() { barra.classList.remove("visibile"); document.body.classList.remove("con-installa"); }
+  function istruzioni(html) {
+    var box = $("installa-come");
+    box.innerHTML = html; box.classList.add("visibile");
+    $("installa-ok").style.display = "none";
+  }
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    promptInstallazione = e;
+    $("installa-ok").style.display = "";
+    $("installa-come").classList.remove("visibile");
+    mostra();
+  });
+  window.addEventListener("appinstalled", function () { nascondi(); });
+
+  $("installa-ok").addEventListener("click", function () {
+    if (promptInstallazione) {
+      promptInstallazione.prompt();
+      promptInstallazione.userChoice.then(function (scelta) {
+        promptInstallazione = null;
+        if (scelta && scelta.outcome === "accepted") nascondi();
+      });
+    } else if (eIOS) {
+      istruzioni("In Safari tocca " + ICONA_CONDIVIDI + " <b>Condividi</b> (in basso al centro), poi <b>Aggiungi alla schermata Home</b> e conferma con <b>Aggiungi</b>.");
+    } else if (eAndroid) {
+      istruzioni("Tocca il menu del browser (&#8942; in alto a destra), poi <b>Installa app</b> oppure <b>Aggiungi a schermata Home</b>.");
+    } else if (eSafariMac) {
+      istruzioni("Dal menu <b>File</b> di Safari scegli <b>Aggiungi al Dock</b>.");
+    } else if (eFirefox) {
+      istruzioni("Firefox non installa le app: puoi aggiungere la pagina ai segnalibri, oppure aprirla con Chrome o Edge e installarla da li'.");
+    } else {
+      istruzioni("Nel menu del browser cerca <b>Installa app</b> oppure <b>Aggiungi a schermata Home</b>.");
+    }
+  });
+  $("installa-no").addEventListener("click", function () {
+    try { localStorage.setItem(CHIAVE, String(Date.now())); } catch (e) {}
+    nascondi();
+  });
+
+  // Senza beforeinstallprompt (iPhone, Firefox, Safari Mac) la barra compare comunque,
+  // con il pulsante che apre le istruzioni. Su Android/Chrome si aspetta l'evento.
+  if (eIOS || eSafariMac || eFirefox) {
+    $("installa-ok").textContent = "Come si fa";
+    mostra();
+  } else if (eAndroid) {
+    setTimeout(function () { if (!promptInstallazione) { $("installa-ok").textContent = "Come si fa"; mostra(); } }, 4000);
+  }
+})();
 </script>
 </body>
 </html>
