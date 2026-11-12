@@ -344,7 +344,7 @@
 <div id="installa" aria-live="polite">
   <div class="riga">
     <img src="icona-192.png" alt="">
-    <div class="testo"><b>Installa il portale come app</b><small>Lo trovi tra le tue app, senza cercare il link.</small></div>
+    <div class="testo"><b>Installa l'app Portale Buste Paga</b><small>La trovi tra le tue app, senza cercare il link.</small></div>
     <button type="button" class="primario" id="installa-ok">Installa</button>
     <button type="button" class="chiudi" id="installa-no" aria-label="Chiudi" title="Non ora">&times;</button>
   </div>
@@ -929,7 +929,7 @@ function apriFinestra() {
       + '<h1 id="t">Apertura in corso</h1><p id="p">Stiamo aprendo il documento, attendi qualche secondo.</p>'
       + '</div><script>setTimeout(function(){document.getElementById("c").style.display="none";document.getElementById("ok").style.display="block";'
       + 'document.getElementById("t").textContent="Fatto";document.title="Fatto";'
-      + 'document.getElementById("p").textContent="Se il documento non si \u00e8 aperto qui, il telefono lo ha scaricato: lo trovi nelle notifiche o nella cartella Download. Puoi chiudere questa scheda."},6000)<\/script></body></html>');
+      + 'document.getElementById("p").textContent="Se il documento non si \u00e8 aperto qui, il telefono lo ha scaricato: lo trovi nelle notifiche oppure nell\'app File, cartella Download. Puoi chiudere questa scheda."},6000)<\/script></body></html>');
     w.document.close();
   } catch (e) {} }
   return w;
@@ -1234,6 +1234,7 @@ document.querySelectorAll(".pw-box").forEach(b => {
   var eSafariMac = /Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua);
   var eFirefox = /Firefox/.test(ua);
   var promptInstallazione = null;
+  var giaInstallata = false;
   var ICONA_CONDIVIDI = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
 
   function mostra() { barra.classList.add("visibile"); document.body.classList.add("con-installa"); }
@@ -1247,6 +1248,7 @@ document.querySelectorAll(".pw-box").forEach(b => {
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     promptInstallazione = e;
+    if (giaInstallata) return;
     $("installa-ok").style.display = "";
     $("installa-come").classList.remove("visibile");
     mostra();
@@ -1277,13 +1279,20 @@ document.querySelectorAll(".pw-box").forEach(b => {
     nascondi();
   });
 
-  // Senza beforeinstallprompt (iPhone, Firefox, Safari Mac) la barra compare comunque,
-  // con il pulsante che apre le istruzioni. Su Android/Chrome si aspetta l'evento.
+  // Chrome, Edge, Samsung, Brave: la barra compare SOLO quando il browser manda
+  // beforeinstallprompt, cioe' quando l'app si puo' davvero installare. Se e' gia'
+  // installata l'evento non arriva e la barra resta nascosta.
+  // In piu' si chiede al browser se l'app risulta gia' installata (dove e' possibile).
+  if (navigator.getInstalledRelatedApps) {
+    navigator.getInstalledRelatedApps().then(function (app) {
+      if (app && app.length) { giaInstallata = true; nascondi(); }
+    }).catch(function () {});
+  }
+  // iPhone, Firefox e Safari su Mac non mandano nessun evento: la barra compare
+  // con il pulsante che apre le istruzioni.
   if (eIOS || eSafariMac || eFirefox) {
     $("installa-ok").textContent = "Come si fa";
     mostra();
-  } else if (eAndroid) {
-    setTimeout(function () { if (!promptInstallazione) { $("installa-ok").textContent = "Come si fa"; mostra(); } }, 4000);
   }
 })();
 </script>
