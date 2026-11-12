@@ -113,19 +113,33 @@
   .link { background: none; border: none; color: var(--blu); text-decoration: underline; font-size: 16px; padding: 0; margin-top: 16px; font-weight: normal; }
   .lista-buste { list-style: none; padding: 0; margin: 0; }
   .lista-buste li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 12px;
-    border-bottom: 1px solid var(--bordo);
-    gap: 12px;
-    flex-wrap: wrap;
+    border: 1px solid var(--bordo); border-radius: 14px; padding: 14px 14px 12px; margin-bottom: 12px;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.05);
   }
-  .lista-buste li:last-child { border-bottom: none; }
-  .lista-buste .titolo { font-weight: 600; font-size: 20px; }
-  .lista-buste .sotto { color: var(--grigio); font-size: 15px; }
-  .azioni { display: flex; gap: 8px; flex-wrap: wrap; }
-  .azioni button { width: auto; padding: 10px 13px; }
+  .lista-buste li.nuova { border: 2px solid var(--blu); background: #f6fbf8; }
+  .lista-buste .testa { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .lista-buste .titolo { font-weight: 700; font-size: 20px; }
+  .lista-buste .sotto { color: var(--grigio); font-size: 13px; margin-top: 2px; }
+  .bollino { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--blu); color: #fff;
+    font-size: 12px; font-weight: 700; vertical-align: 3px; }
+  .azioni { display: flex; gap: 8px; margin-top: 12px; }
+  .azioni button { flex: 1; min-width: 0; margin: 0; padding: 10px 6px; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .azioni button svg { width: 18px; height: 18px; flex: none; }
+  .intro { margin: 0 0 12px; }
+  details.come { margin: 0 0 14px; font-size: 15px; }
+  details.come summary { color: var(--blu); cursor: pointer; text-decoration: underline; width: fit-content; }
+  details.come p { margin: 8px 0 0; color: #444; line-height: 1.5; }
+  @media (max-width: 600px) {
+    header { padding: 8px 12px; flex-wrap: nowrap; }
+    header .marchio { gap: 10px; min-width: 0; }
+    header .logo { width: 58px; height: 40px; padding: 2px; border-radius: 6px; flex: none; }
+    header h1 { font-size: 18px; white-space: nowrap; }
+    header h1 small { display: none; }
+    header .utente { font-size: 13px; gap: 8px; flex-wrap: nowrap; text-align: right; line-height: 1.2; }
+    header .utente button { padding: 7px 12px; font-size: 14px; }
+    main { margin: 16px auto; padding: 0 10px; }
+    .card { padding: 18px 14px; }
+  }
   .schede { position: relative; margin: 6px 0 18px; max-width: 360px; }
   .tendina-btn { width: 100%; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     background: #fff; color: var(--blu); border: 2px solid var(--blu); border-radius: 10px; padding: 12px 14px; text-align: left; }
@@ -182,7 +196,8 @@
   body.con-installa { padding-bottom: 120px; }
   footer { text-align: center; color: var(--grigio); font-size: 13px; line-height: 1.6; padding: 24px 16px; border-top: 1px solid var(--bordo); margin-top: 20px; }
   footer .logo { width: 90px; height: 62px; display: block; margin: 0 auto 8px; }
-  .stato { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .stato { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+  .stato.esteso { white-space: normal; }
   .stato.attesa { background: #fff4d6; color: #8a5a00; border: 1px solid #f0c040; }
   .stato.ok { background: #e8f5e9; color: var(--verde); border: 1px solid #a5d6a7; }
   .conferma { background: #fff; border-radius: 14px; max-width: 440px; width: 100%; padding: 24px 22px; font-size: 16px; line-height: 1.5; }
@@ -265,7 +280,10 @@
   <!-- ============ LE MIE BUSTE ============ -->
   <section class="card nascosto" id="sez-buste">
     <h2>I tuoi documenti</h2>
-    <p>Scegli dal menu cosa vedere, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail). La prima volta che apri un documento nuovo ti viene chiesto di confermarne la ricezione.</p>
+    <p class="intro">Scegli il periodo e apri il documento.</p>
+    <details class="come"><summary>Come funziona?</summary>
+      <p><strong>Apri</strong> visualizza il documento, <strong>Scarica</strong> lo salva sul tuo dispositivo, <strong>Condividi</strong> lo invia (ad esempio su WhatsApp o per e-mail). La prima volta che apri un documento nuovo ti viene chiesto di confermarne la ricezione.</p>
+    </details>
     <div class="messaggio" id="msg-buste"></div>
     <div class="schede" id="schede"></div>
     <ul class="lista-buste" id="lista-buste"></ul>
@@ -744,16 +762,17 @@ function mostraScheda(chiave) {
       ? NOMI_MESI[b.mese] + " " + b.anno + (b.pagina > 1 ? " (pagina " + b.pagina + ")" : "")
       : ((b.descrizione || "Documento").includes(String(b.anno)) ? (b.descrizione || "Documento") : (b.descrizione || "Documento") + " " + b.anno);
     const dataCaricamento = new Date(b.caricato_il).toLocaleDateString("it-IT");
+    li.dataset.doc = b.id;
     li.innerHTML = `
-      <div>
-        <div class="titolo">${titolo}</div>
-        <div class="sotto">Disponibile dal ${dataCaricamento}</div>
+      <div class="testa">
+        <div class="titolo">${titolo}<span class="bollino">Nuova</span></div>
         <div class="stato" data-stato="${b.id}"></div>
       </div>
+      <div class="sotto">Disponibile dal ${dataCaricamento}</div>
       <div class="azioni">
-        <button class="primario piccolo" data-azione="visualizza">Apri</button>
-        <button class="secondario piccolo" data-azione="scarica">Scarica</button>
-        ${puoCondividere ? '<button class="secondario piccolo" data-azione="condividi">Condividi</button>' : ''}
+        <button class="primario piccolo" data-azione="visualizza">${ICONE.apri}Apri</button>
+        <button class="secondario piccolo" data-azione="scarica">${ICONE.scarica}Scarica</button>
+        ${puoCondividere ? '<button class="secondario piccolo" data-azione="condividi">' + ICONE.condividi + 'Condividi</button>' : ''}
       </div>`;
     li.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => apriBusta(b, btn.dataset.azione, btn));
@@ -763,16 +782,29 @@ function mostraScheda(chiave) {
   });
 }
 
+const ICONE = {
+  apri: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  scarica: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  condividi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>'
+};
+
 function aggiornaStato(el, b) {
   if (!el) return;
-  if (!confermeAttive) { el.style.display = "none"; return; }
+  const li = el.closest("li");
+  const bollino = li && li.querySelector(".bollino");
+  if (!confermeAttive) { el.style.display = "none"; if (bollino) bollino.style.display = "none"; return; }
   if (eConfermato(b)) {
     const q = new Date(conferme[b.id].quando);
-    el.className = "stato ok";
-    el.textContent = "\u2713 Ricezione confermata il " + q.toLocaleDateString("it-IT") + " alle " + q.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    const corto = "\u2713 Confermata il " + q.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+    const lungo = "\u2713 Ricezione confermata il " + q.toLocaleDateString("it-IT") + " alle " + q.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    el.className = "stato ok"; el.textContent = corto; el.title = lungo;
+    el.onclick = () => { const e = el.classList.toggle("esteso"); el.textContent = e ? lungo : corto; };
+    if (li) li.classList.remove("nuova");
+    if (bollino) bollino.style.display = "none";
   } else {
-    el.className = "stato attesa";
-    el.textContent = "Da confermare";
+    el.className = "stato attesa"; el.textContent = "Da confermare"; el.onclick = null;
+    if (li) li.classList.add("nuova");
+    if (bollino) bollino.style.display = "";
   }
 }
 
