@@ -686,7 +686,7 @@ async function mostraBuste() {
 
   // Una scheda per ogni anno con buste paga, piu' una per i documenti annuali (CUD)
   const anni = [...new Set(documenti.filter(b => (b.tipo || "busta_paga") === "busta_paga").map(b => b.anno))];
-  const schede = anni.map(a => ({ chiave: String(a), etichetta: String(a) }));
+  const schede = anni.map(a => ({ chiave: String(a), etichetta: "Buste paga " + a }));
   if (documenti.some(b => (b.tipo || "busta_paga") !== "busta_paga")) {
     schede.push({ chiave: "annuali", etichetta: "CUD e altri documenti" });
   }
