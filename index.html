@@ -126,7 +126,19 @@
   .lista-buste .sotto { color: var(--grigio); font-size: 15px; }
   .azioni { display: flex; gap: 8px; flex-wrap: wrap; }
   .azioni button { width: auto; padding: 10px 13px; }
-  .schede { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 18px; }
+  .schede { position: relative; margin: 6px 0 18px; max-width: 360px; }
+  .tendina-btn { width: 100%; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: #fff; color: var(--blu); border: 2px solid var(--blu); border-radius: 10px; padding: 12px 14px; text-align: left; }
+  .tendina-btn svg { width: 22px; height: 22px; flex: none; transition: transform .15s; }
+  .schede.aperta .tendina-btn svg { transform: rotate(180deg); }
+  .tendina-lista { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30;
+    background: #fff; border: 1px solid var(--bordo); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); overflow: hidden; }
+  .schede.aperta .tendina-lista { display: block; }
+  .tendina-lista button { display: block; width: 100%; margin: 0; padding: 13px 16px; text-align: left; background: #fff; color: #222;
+    border: none; border-radius: 0; border-bottom: 1px solid var(--bordo); font-weight: 500; }
+  .tendina-lista button:last-child { border-bottom: none; }
+  .tendina-lista button.attiva { color: var(--blu); font-weight: 700; background: var(--blu-chiaro); }
+  .tendina-lista button:active { transform: none; opacity: 1; background: #e8f0ec; }
   .scheda {
     padding: 10px 20px; border-radius: 999px; border: 2px solid var(--blu);
     background: #fff; color: var(--blu); font-weight: 600; font-size: 17px; margin: 0;
@@ -253,7 +265,7 @@
   <!-- ============ LE MIE BUSTE ============ -->
   <section class="card nascosto" id="sez-buste">
     <h2>I tuoi documenti</h2>
-    <p>Scegli l'anno, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail). La prima volta che apri un documento nuovo ti viene chiesto di confermarne la ricezione.</p>
+    <p>Scegli dal menu cosa vedere, poi clicca su <strong>Apri</strong> per visualizzare la busta, <strong>Scarica</strong> per salvarla sul tuo dispositivo o <strong>Condividi</strong> per inviarla (ad esempio su WhatsApp o per e-mail). La prima volta che apri un documento nuovo ti viene chiesto di confermarne la ricezione.</p>
     <div class="messaggio" id="msg-buste"></div>
     <div class="schede" id="schede"></div>
     <ul class="lista-buste" id="lista-buste"></ul>
@@ -690,20 +702,36 @@ async function mostraBuste() {
   if (documenti.some(b => (b.tipo || "busta_paga") !== "busta_paga")) {
     schede.push({ chiave: "annuali", etichetta: "CUD e altri documenti" });
   }
-  schede.forEach(sc => {
-    const btn = document.createElement("button");
-    btn.className = "scheda"; btn.textContent = sc.etichetta; btn.dataset.chiave = sc.chiave;
-    btn.addEventListener("click", () => mostraScheda(sc.chiave));
-    $("schede").appendChild(btn);
-  });
-  if (schede.length) mostraScheda(schede.some(s => s.chiave === schedaAttiva) ? schedaAttiva : schede[0].chiave);
+  const cont = $("schede"); cont.className = "schede";
+  if (schede.length) {
+    const apri = document.createElement("button");
+    apri.type = "button"; apri.className = "tendina-btn"; apri.id = "tendina-btn";
+    apri.innerHTML = '<span id="tendina-testo"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    apri.addEventListener("click", (e) => { e.stopPropagation(); cont.classList.toggle("aperta"); });
+    const lista = document.createElement("div"); lista.className = "tendina-lista";
+    schede.forEach(sc => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = sc.etichetta; b.dataset.chiave = sc.chiave;
+      b.addEventListener("click", () => { cont.classList.remove("aperta"); mostraScheda(sc.chiave); });
+      lista.appendChild(b);
+    });
+    cont.appendChild(apri); cont.appendChild(lista);
+    // di default: le buste paga dell'anno in corso (o dell'anno piu' recente disponibile)
+    const annoCorrente = String(new Date().getFullYear());
+    const iniziale = schede.some(s => s.chiave === schedaAttiva) ? schedaAttiva
+                   : schede.some(s => s.chiave === annoCorrente) ? annoCorrente : schede[0].chiave;
+    mostraScheda(iniziale);
+  }
 
   if (profilo.is_admin) await mostraAdmin();
 }
 
 function mostraScheda(chiave) {
   schedaAttiva = chiave;
-  document.querySelectorAll("#schede .scheda").forEach(b => b.classList.toggle("attiva", b.dataset.chiave === chiave));
+  document.querySelectorAll("#schede .tendina-lista button").forEach(b => {
+    b.classList.toggle("attiva", b.dataset.chiave === chiave);
+    if (b.dataset.chiave === chiave) $("tendina-testo").textContent = b.textContent;
+  });
   const lista = $("lista-buste"); lista.innerHTML = "";
   const selezionati = documenti.filter(b => {
     const eBusta = (b.tipo || "busta_paga") === "busta_paga";
@@ -1058,6 +1086,8 @@ $("adm-file").addEventListener("change", async (ev) => {
 
 // =====================================================================
 avvio();
+document.addEventListener("click", () => { const c = $("schede"); if (c) c.classList.remove("aperta"); });
+
 // Occhiolino per mostrare/nascondere la password
 const OCCHIO_APERTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const OCCHIO_CHIUSO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
