@@ -985,7 +985,7 @@ async function scaricaBusta(busta, btn) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     registraAccesso("scarica", busta.id);
-    esito(busta, "\u2713 Documento scaricato. Lo trovi nelle notifiche o nella cartella Download.", "ok");
+    esito(busta, "\u2713 Documento scaricato. Lo trovi nelle notifiche oppure nell'app File, cartella Download.", "ok");
   } catch (e) {
     // riserva: link diretto da toccare (vecchio metodo)
     try {
