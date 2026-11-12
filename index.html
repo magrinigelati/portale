@@ -828,10 +828,23 @@ async function condividiBusta(busta, btn) {
 function apriFinestra(download) {
   const w = window.open("", "_blank");
   if (w) { try {
-    w.document.title = download ? "Download..." : "Apertura...";
-    w.document.body.innerHTML = '<p style="font:18px sans-serif;padding:24px">' + (download
-      ? "Download del documento in corso... Quando il file e' stato salvato puoi chiudere questa scheda."
-      : "Apertura del documento in corso...") + '</p>';
+    const titolo = download ? "Download in corso" : "Apertura in corso";
+    const testo = download
+      ? "Stiamo scaricando il documento. Quando il file e' stato salvato puoi chiudere questa scheda."
+      : "Stiamo aprendo il documento, attendi qualche secondo.";
+    w.document.open();
+    w.document.write('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+      + '<title>' + titolo + '</title>'
+      + '<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;'
+      + 'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f7f4;color:#1f3b2c;text-align:center;padding:24px;box-sizing:border-box}'
+      + '.b{max-width:420px}.c{width:56px;height:56px;border:6px solid #cfe3d6;border-top-color:#1f7a4d;border-radius:50%;margin:0 auto 24px;animation:g 1s linear infinite}'
+      + '@keyframes g{to{transform:rotate(360deg)}}h1{font-size:26px;margin:0 0 12px;color:#1f7a4d}p{font-size:18px;line-height:1.5;margin:0}'
+      + '.n{margin-top:28px;font-size:15px;color:#667;display:none}</style></head><body><div class="b"><div class="c"></div>'
+      + '<h1>' + titolo + '</h1><p>' + testo + '</p>'
+      + '<p class="n" id="n">Non vedi ancora nulla? Su alcuni telefoni il PDF viene scaricato: controlla le notifiche o la cartella Download, poi puoi chiudere questa scheda.</p>'
+      + '</div><script>setTimeout(function(){document.getElementById("n").style.display="block"},6000)<\/script></body></html>');
+    w.document.close();
   } catch (e) {} }
   return w;
 }
