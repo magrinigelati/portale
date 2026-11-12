@@ -125,6 +125,7 @@
   .azioni { display: flex; gap: 8px; margin-top: 12px; }
   .azioni button { flex: 1; min-width: 0; margin: 0; padding: 10px 6px; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .azioni button svg { width: 18px; height: 18px; flex: none; }
+  .lista-buste .esito { margin: 10px 0 0; padding: 10px 12px; font-size: 15px; }
   .intro { margin: 0 0 12px; }
   details.come { margin: 0 0 14px; font-size: 15px; }
   details.come summary { color: var(--blu); cursor: pointer; text-decoration: underline; width: fit-content; }
@@ -773,7 +774,8 @@ function mostraScheda(chiave) {
         <button class="primario piccolo" data-azione="visualizza">${ICONE.apri}Apri</button>
         <button class="secondario piccolo" data-azione="scarica">${ICONE.scarica}Scarica</button>
         ${puoCondividere ? '<button class="secondario piccolo" data-azione="condividi">' + ICONE.condividi + 'Condividi</button>' : ''}
-      </div>`;
+      </div>
+      <div class="esito messaggio"></div>`;
     li.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => apriBusta(b, btn.dataset.azione, btn));
     });
@@ -842,7 +844,7 @@ $("conf-ok").addEventListener("click", async () => {
   const okBtn = $("conf-ok");
   okBtn.disabled = true; msg("msg-conferma", "");
   // la scheda del PDF va aperta ADESSO, dentro il tocco (altrimenti Safari la blocca)
-  const w = c.azione === "condividi" ? null : apriFinestra(c.azione === "scarica");
+  const w = c.azione === "visualizza" ? apriFinestra() : null;
   try {
     const { data: quando, error } = await sb.rpc("conferma_ricezione", { p_busta_id: c.busta.id });
     if (error) throw error;
@@ -851,6 +853,8 @@ $("conf-ok").addEventListener("click", async () => {
     chiudiConferma();
     if (c.azione === "condividi") {
       await condividiBusta(c.busta, c.btn);
+    } else if (c.azione === "scarica") {
+      await scaricaBusta(c.busta, c.btn);
     } else {
       await apriDocumento(c.busta, c.azione, c.btn, w);
     }
@@ -871,7 +875,7 @@ try {
 const filePronti = {};   // id busta -> File gia' scaricato (per il secondo tocco su Safari)
 
 async function condividiBusta(busta, btn) {
-  const testo = btn.textContent;
+  const testo = btn.innerHTML;
   btn.disabled = true; btn.textContent = "Preparo...";
   try {
     let file = filePronti[busta.id];
@@ -888,36 +892,34 @@ async function condividiBusta(busta, btn) {
   } catch (e) {
     if (e && e.name === "NotAllowedError") {
       // Safari: troppo tempo tra il tocco e la condivisione. Il file e' pronto in memoria.
-      msg("msg-buste", "Il documento e' pronto: tocca di nuovo Condividi.", "info");
+      esito(busta, "Il documento \u00e8 pronto: tocca di nuovo Condividi.", "info");
     } else if (!(e && e.name === "AbortError")) {
-      msg("msg-buste", traduciErrore(e), "errore");
+      esito(busta, traduciErrore(e), "errore");
     }
   } finally {
-    btn.disabled = false; btn.textContent = testo;
+    btn.disabled = false; btn.innerHTML = testo;
   }
 }
 
 // I telefoni bloccano le finestre aperte dopo un'attesa (popup): la finestra
 // si apre subito al tocco, e il PDF ci viene caricato appena il link e' pronto.
-function apriFinestra(download) {
+function apriFinestra() {
   const w = window.open("", "_blank");
   if (w) { try {
-    const titolo = download ? "Download in corso" : "Apertura in corso";
-    const testo = download
-      ? "Stiamo scaricando il documento. Quando il file e' stato salvato puoi chiudere questa scheda."
-      : "Stiamo aprendo il documento, attendi qualche secondo.";
     w.document.open();
     w.document.write('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
       + '<meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<title>' + titolo + '</title>'
+      + '<title>Apertura in corso</title>'
       + '<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;'
       + 'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f7f4;color:#1f3b2c;text-align:center;padding:24px;box-sizing:border-box}'
       + '.b{max-width:420px}.c{width:56px;height:56px;border:6px solid #cfe3d6;border-top-color:#1f7a4d;border-radius:50%;margin:0 auto 24px;animation:g 1s linear infinite}'
+      + '.ok{width:64px;height:64px;border-radius:50%;background:#1f7a4d;color:#fff;font-size:38px;line-height:64px;margin:0 auto 24px;display:none}'
       + '@keyframes g{to{transform:rotate(360deg)}}h1{font-size:26px;margin:0 0 12px;color:#1f7a4d}p{font-size:18px;line-height:1.5;margin:0}'
-      + '.n{margin-top:28px;font-size:15px;color:#667;display:none}</style></head><body><div class="b"><div class="c"></div>'
-      + '<h1>' + titolo + '</h1><p>' + testo + '</p>'
-      + '<p class="n" id="n">Non vedi ancora nulla? Su alcuni telefoni il PDF viene scaricato: controlla le notifiche o la cartella Download, poi puoi chiudere questa scheda.</p>'
-      + '</div><script>setTimeout(function(){document.getElementById("n").style.display="block"},6000)<\/script></body></html>');
+      + '</style></head><body><div class="b"><div class="c" id="c"></div><div class="ok" id="ok">&#10003;</div>'
+      + '<h1 id="t">Apertura in corso</h1><p id="p">Stiamo aprendo il documento, attendi qualche secondo.</p>'
+      + '</div><script>setTimeout(function(){document.getElementById("c").style.display="none";document.getElementById("ok").style.display="block";'
+      + 'document.getElementById("t").textContent="Fatto";document.title="Fatto";'
+      + 'document.getElementById("p").textContent="Se il documento non si \u00e8 aperto qui, il telefono lo ha scaricato: lo trovi nelle notifiche o nella cartella Download. Puoi chiudere questa scheda."},6000)<\/script></body></html>');
     w.document.close();
   } catch (e) {} }
   return w;
@@ -937,8 +939,57 @@ function mostraInFinestra(w, url, idMsg) {
 async function apriBusta(busta, azione, btn) {
   if (!eConfermato(busta)) return chiediConferma(busta, azione, btn);
   if (azione === "condividi") return condividiBusta(busta, btn);
+  if (azione === "scarica") return scaricaBusta(busta, btn);
   // la scheda si apre subito, dentro il tocco
-  return apriDocumento(busta, azione, btn, apriFinestra(azione === "scarica"));
+  return apriDocumento(busta, azione, btn, apriFinestra());
+}
+
+// Messaggio dentro la scheda del documento (sparisce da solo)
+function esito(busta, testo, tipo) {
+  const li = document.querySelector('#lista-buste li[data-doc="' + busta.id + '"]');
+  const el = li && li.querySelector(".esito");
+  if (!el) { msg("msg-buste", testo, tipo); return; }
+  el.className = "esito messaggio " + (tipo || "ok"); el.textContent = testo;
+  clearTimeout(el._t);
+  if (tipo !== "errore") el._t = setTimeout(() => { el.className = "esito messaggio"; el.textContent = ""; }, 10000);
+}
+
+// SCARICA: il file viene scaricato dentro la pagina e poi consegnato al telefono,
+// cosi' il portale sa quando ha finito (niente scheda di attesa).
+async function scaricaBusta(busta, btn) {
+  const contenuto = btn.innerHTML;
+  btn.disabled = true; btn.textContent = "Scarico...";
+  try {
+    let file = filePronti[busta.id];
+    if (!file) {
+      const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120);
+      if (error) throw error;
+      const risposta = await fetch(data.signedUrl);
+      if (!risposta.ok) throw new Error("download non riuscito");
+      file = new File([await risposta.blob()], busta.nome_file, { type: "application/pdf" });
+      filePronti[busta.id] = file;
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url; a.download = busta.nome_file; a.style.display = "none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    registraAccesso("scarica", busta.id);
+    esito(busta, "\u2713 Documento scaricato. Lo trovi nelle notifiche o nella cartella Download.", "ok");
+  } catch (e) {
+    // riserva: link diretto da toccare (vecchio metodo)
+    try {
+      const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120, { download: busta.nome_file });
+      if (error) throw error;
+      registraAccesso("scarica", busta.id);
+      mostraInFinestra(null, data.signedUrl, "msg-buste");
+      $("msg-buste").scrollIntoView({ block: "center" });
+    } catch (e2) {
+      esito(busta, traduciErrore(e2), "errore");
+    }
+  } finally {
+    btn.disabled = false; btn.innerHTML = contenuto;
+  }
 }
 
 async function apriDocumento(busta, azione, btn, w) {
