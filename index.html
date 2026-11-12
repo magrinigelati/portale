@@ -21,6 +21,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icona-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <style>
   :root {
     --blu: #1f7a4d;          /* verde principale (pulsanti, titoli) */
@@ -98,6 +99,9 @@
   }
   button.primario { background: linear-gradient(100deg, var(--verde-a), var(--blu)); color: #fff; width: 100%; }
   button.primario:hover { background: var(--blu-scuro); }
+  button:active { transform: scale(.97); opacity: .85; }
+  button:disabled { opacity: .6; cursor: wait; }
+  button { -webkit-tap-highlight-color: transparent; transition: transform .08s, opacity .08s; }
   input:focus, select:focus { outline: 2px solid var(--verde-b); border-color: var(--verde-b); }
   button.secondario { background: #fff; color: var(--blu); border: 2px solid var(--blu); }
   button.piccolo { font-size: 16px; padding: 10px 16px; margin: 0; }
@@ -371,6 +375,7 @@
   </div>
 </div>
 
+<link rel="preconnect" href="https://yulutbgvsotkwrfpbphd.supabase.co" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // =====================================================================
@@ -503,9 +508,12 @@ async function avvio() {
 
 async function dopoLogin(nuovoLogin) {
   if (recuperoInCorso) return;   // durante il recupero password non si entra nelle buste
-  const { data: { user } } = await sb.auth.getUser();
+  const { data: { session } } = await sb.auth.getSession();
+  const user = session && session.user;
   if (!user) { mostra("sez-login"); return; }
 
+  // documenti e conferme partono subito, insieme al profilo (tre richieste in parallelo)
+  precarico = caricaDocumenti(user.id);
   const { data, error } = await sb.from("dipendenti").select("*").eq("id", user.id).single();
   if (error || !data) {
     msg("msg-login", "Profilo non trovato. Contatta l'ufficio.", "errore");
@@ -521,7 +529,7 @@ async function dopoLogin(nuovoLogin) {
     return;
   }
 
-  if (nuovoLogin) await registraAccesso("login");
+  if (nuovoLogin) registraAccesso("login");   // in background, non si aspetta
 
   $("barra-utente").classList.remove("nascosto");
   $("nome-utente").textContent = (profilo.nome + " " + profilo.cognome).trim();
@@ -642,14 +650,26 @@ function eConfermato(b) {
   return true;
 }
 
-async function caricaConferme() {
-  conferme = {};
-  const { data, error } = await sb.from("conferme_ricezione")
+let precarico = null;   // promessa con documenti e conferme, avviata appena si conosce l'utente
+
+function caricaDocumenti(uid) {
+  const docs = sb.from("buste_paga")
+    .select("id, tipo, descrizione, anno, mese, pagina, nome_file, percorso, caricato_il, hash_sha256")
+    .eq("dipendente_id", uid)
+    .order("anno", { ascending: false })
+    .order("mese", { ascending: false })
+    .order("pagina", { ascending: true });
+  const conf = sb.from("conferme_ricezione")
     .select("busta_id, confermata_il, hash_sha256")
-    .eq("dipendente_id", profilo.id)
+    .eq("dipendente_id", uid)
     .order("confermata_il", { ascending: false });
-  confermeAttive = !error;
-  (data || []).forEach(c => { if (c.busta_id && !conferme[c.busta_id]) conferme[c.busta_id] = { quando: c.confermata_il, hash: c.hash_sha256 }; });
+  return Promise.all([docs, conf]);
+}
+
+function applicaConferme(risposta) {
+  conferme = {};
+  confermeAttive = !risposta.error;
+  (risposta.data || []).forEach(c => { if (c.busta_id && !conferme[c.busta_id]) conferme[c.busta_id] = { quando: c.confermata_il, hash: c.hash_sha256 }; });
 }
 
 async function mostraBuste() {
@@ -657,17 +677,11 @@ async function mostraBuste() {
   msg("msg-buste", "");
   $("schede").innerHTML = ""; $("lista-buste").innerHTML = "";
 
-  const { data, error } = await sb
-    .from("buste_paga")
-    .select("id, tipo, descrizione, anno, mese, pagina, nome_file, percorso, caricato_il, hash_sha256")
-    .eq("dipendente_id", profilo.id)
-    .order("anno", { ascending: false })
-    .order("mese", { ascending: false })
-    .order("pagina", { ascending: true });
-
-  if (error) { msg("msg-buste", traduciErrore(error), "errore"); return; }
-  documenti = data;
-  await caricaConferme();
+  const [rDocs, rConf] = await (precarico || caricaDocumenti(profilo.id));
+  precarico = null;
+  if (rDocs.error) { msg("msg-buste", traduciErrore(rDocs.error), "errore"); return; }
+  documenti = rDocs.data;
+  applicaConferme(rConf);
   $("buste-vuoto").classList.toggle("nascosto", documenti.length > 0);
 
   // Una scheda per ogni anno con buste paga, piu' una per i documenti annuali (CUD)
@@ -873,8 +887,8 @@ async function apriDocumento(busta, azione, btn, w) {
     const opzioni = azione === "scarica" ? { download: busta.nome_file } : {};
     const { data, error } = await sb.storage.from("buste-paga").createSignedUrl(busta.percorso, 120, opzioni);
     if (error) throw error;
-    await registraAccesso(azione, busta.id);
     mostraInFinestra(w, data.signedUrl, "msg-buste");
+    registraAccesso(azione, busta.id);   // in background
   } catch (e) {
     if (w && !w.closed) w.close();
     msg("msg-buste", traduciErrore(e), "errore");
