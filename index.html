@@ -235,6 +235,15 @@
     header .marchio { flex: 1 0 auto; }
     header .utente { margin-left: auto; white-space: nowrap; }
   }
+
+  /* telefono: titolo corto "Buste Paga", cosi' nome ed Esci stanno sulla stessa riga */
+  @media (max-width: 600px) {
+    header .solo-largo { display: none; }
+    header .marchio { flex: 0 0 auto; }
+    header { flex-wrap: nowrap; }
+    header .utente { flex: 1 1 0; justify-content: flex-end; min-width: 0; white-space: normal; }
+    header .utente button { flex: none; }
+  }
 </style>
 </head>
 <body>
@@ -242,7 +251,7 @@
 <header>
   <div class="marchio">
     <span class="logo" role="img" aria-label="Logo Magrini"></span>
-    <h1>Portale Buste Paga<small>Magrini R. &amp; Ceci G. snc</small></h1>
+    <h1><span class="solo-largo">Portale </span>Buste Paga<small>Magrini R. &amp; Ceci G. snc</small></h1>
   </div>
   <div class="utente nascosto" id="barra-utente">
     <span id="nome-utente"></span>
