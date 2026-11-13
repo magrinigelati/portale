@@ -226,6 +226,15 @@
   .bollino { background: var(--giallo); color: #4a3b00; }
   .tendina-lista button.attiva { background: #fff8d9; }
   footer { background: #f6f1df; }
+
+  /* caratteri grandi / schermi stretti: niente sovrapposizioni */
+  .azioni { flex-wrap: wrap; }
+  .azioni button { flex: 1 0 auto; min-width: auto; padding: 10px 8px; white-space: nowrap; }
+  @media (max-width: 600px) {
+    header { flex-wrap: wrap; row-gap: 6px; }
+    header .marchio { flex: 1 0 auto; }
+    header .utente { margin-left: auto; white-space: nowrap; }
+  }
 </style>
 </head>
 <body>
